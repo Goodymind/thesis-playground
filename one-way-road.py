@@ -6,6 +6,8 @@ Events:
 4. if red light, car waits
 '''
 
+from collections import deque
+
 class event:
     def __init__(self, time, action : callable, description=""):
         self.time = time
@@ -14,7 +16,7 @@ class event:
         
     def __lt__(self, other):
         return self.time < other.time
-    
+
 class event_simulator:
     def __init__(self):
         self.current_time = 0
@@ -38,27 +40,35 @@ class event_simulator:
     def stop(self):
         self.running = False
 
+class road():
+    def __init__(self, name):
+        self.cars_on_road = deque()
+        self.name = name
+
+class traffic_light():
+    def __init__(self, name, road_start, road_end):
+        self.state = "red"
+        self.name = name
+        self.road_start = road_start
+        self.road_end = road_end
+
 class car:
-    def __init__(self, id):
+    def __init__(self, id, destination):
         self.id = id
+        self.destination = destination
+
+
 
 if __name__ == "__main__":
     sim = event_simulator()
-    car1 = car(1)
-    car2 = car(2)
+    road_a = road("Road A")
+    road_b = road("Road B")
+    light_a = traffic_light("Light A", road_a, road_b)
     
-    def car_enters_road(car):
-        print(f"Car {car.id} enters the road at time {sim.current_time}")
-        sim.schedule(1, lambda: car_lines_up(car), f"Car {car.id} lines up")
-    
-    def car_lines_up(car):
-        print(f"Car {car.id} lines up at time {sim.current_time}")
-        sim.schedule(1, lambda: car_goes_through(car), f"Car {car.id} goes through")
-    
-    def car_goes_through(car):
-        print(f"Car {car.id} goes through at time {sim.current_time}")
-    
-    sim.schedule(0, lambda: car_enters_road(car1), "Car 1 enters road")
-    sim.schedule(0.5, lambda: car_enters_road(car2), "Car 2 enters road")
-    
-    sim.run()
+    def car_generator():
+        car_id = 1
+        while True:
+            yield car(car_id, road_b)
+            car_id += 1
+
+    # TODO: Implement the logic for car generation, traffic light changes, and car movement through the intersection.
