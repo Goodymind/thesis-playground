@@ -8,7 +8,7 @@ class TrafficData:
         self.queue = 0
         self.traffic_light_red_time   = 60
         self.traffic_light_green_time = 60
-        self.arrival_interval  = 1
+        self.arrival_interval  = 10
         self.first_car_delay   = 5
         self.saturation_headway = 2
         self.sim_duration      = 200
@@ -46,8 +46,10 @@ class TrafficData:
         green_end = self.env.now + self.traffic_light_green_time
         first = True
 
-        while self.queue > 0:
+        while self.queue > 0 or self.env.now < green_end:
 
+            if self.queue == 0:
+                first = False
             wait = self.first_car_delay if first else self.saturation_headway
             first = False
 
