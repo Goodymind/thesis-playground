@@ -46,14 +46,20 @@ class TrafficData:
         green_end = self.env.now + self.traffic_light_green_time
         first = True
 
-        while self.env.now < green_end and self.queue > 0:
+        while self.queue > 0:
 
             wait = self.first_car_delay if first else self.saturation_headway
             first = False
 
+            remaining_green = green_end - self.env.now
+
+            if remaining_green <= 0:
+                break
+
+            wait = min(wait, remaining_green)
+
             yield self.env.timeout(wait)
 
-            # re-check after waiting
             if self.env.now >= green_end:
                 break
 
