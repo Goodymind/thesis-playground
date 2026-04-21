@@ -25,10 +25,15 @@ class TrafficData:
         while True:
             self.traffic_light_state = "green"
             print(f"Signal light is green at {self.env.now}")
-            yield self.env.process(self.discharger())   # wait for discharger
+
+            # run discharger in parallel (NOT yield)
+            self.env.process(self.discharger())
+
+            yield self.env.timeout(self.traffic_light_green_time)
 
             self.traffic_light_state = "red"
             print(f"Signal light is red at {self.env.now}")
+
             yield self.env.timeout(self.traffic_light_red_time)
 
     def arrivals(self):
@@ -41,18 +46,21 @@ class TrafficData:
         green_end = self.env.now + self.traffic_light_green_time
         first = True
 
-        while self.queue > 0:
+        while self.env.now < green_end and self.queue > 0:
+
             wait = self.first_car_delay if first else self.saturation_headway
             first = False
 
             yield self.env.timeout(wait)
 
-            if self.env.now > green_end:
+            # re-check after waiting
+            if self.env.now >= green_end:
                 break
 
-            self.queue -= 1
-            self.cars_accepted += 1
-            print(f"Car departs at {self.env.now}, queue: {self.queue}")
+            if self.queue > 0:
+                self.queue -= 1
+                self.cars_accepted += 1
+                print(f"Car departs at {self.env.now:.2f}, queue: {self.queue}")
 
 
 if __name__ == "__main__":
