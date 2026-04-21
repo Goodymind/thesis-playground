@@ -6,8 +6,8 @@ class traffic_data:
         # input
         self.queue = 0
         self.traffic_light_state = "red"
-        self.traffic_light_red_time = 20
-        self.traffic_light_green_time = 20
+        self.traffic_light_red_time = 60
+        self.traffic_light_green_time = 60
         self.arrival_interval = 1
         self.first_car_delay = 5
         self.saturation_headway = 2
@@ -20,7 +20,6 @@ class traffic_data:
         self.env = env
         self.arrival_proc = env.process(self.arrivals(env, self))
         self.signal_light_proc = env.process(self.signal_light(env, self))
-        self.discharger_reactivate = env.event()
         
 
     def signal_light(self, env, data):
@@ -46,18 +45,14 @@ class traffic_data:
 
         while env.now < green_end and data.queue > 0:
             if first:
-                # First car has extra delay (startup lost time)
                 yield env.timeout(data.first_car_delay)
                 first = False
             else:
-                # After that, use saturation headway
                 yield env.timeout(data.saturation_headway)
 
-            # Check again in case time expired while waiting
             if env.now >= green_end:
                 break
 
-            # Discharge a car
             data.queue -= 1
             data.cars_accepted += 1
             print(f"Car departs at {env.now}, queue left: {data.queue}")
