@@ -1,65 +1,63 @@
 import simpy
-import random
 
-class traffic_data:
+class TrafficData:
     def __init__(self, env):
-        # input
-        self.queue = 0
-        self.traffic_light_state = "red"
-        self.traffic_light_red_time = 60
-        self.traffic_light_green_time = 60
-        self.arrival_interval = 1
-        self.first_car_delay = 5
-        self.saturation_headway = 2
-        self.sim_duration = 200
-        
-        # output
-        self.cars_accepted = 0
-
-        # event related stuff
         self.env = env
-        self.arrival_proc = env.process(self.arrivals(env, self))
-        self.signal_light_proc = env.process(self.signal_light(env, self))
-        
 
-    def signal_light(self, env, data):
+        # inputs
+        self.queue = 0
+        self.traffic_light_red_time   = 60
+        self.traffic_light_green_time = 60
+        self.arrival_interval  = 1
+        self.first_car_delay   = 5
+        self.saturation_headway = 2
+        self.sim_duration      = 200
+
+        # outputs
+        self.cars_accepted = 0
+        self.traffic_light_state = "red"
+
+        # start processes
+        env.process(self.arrivals())
+        env.process(self.signal_light())
+
+    def signal_light(self):
         while True:
-            print(f"Signal light is green at {env.now}")
-            env.process(self.discharger(env, data))
-            yield env.timeout(data.traffic_light_green_time)
+            self.traffic_light_state = "green"
+            print(f"Signal light is green at {self.env.now}")
+            yield self.env.process(self.discharger())   # wait for discharger
 
-            print(f"Signal light is red at {env.now}")
-            yield env.timeout(data.traffic_light_red_time)  
+            self.traffic_light_state = "red"
+            print(f"Signal light is red at {self.env.now}")
+            yield self.env.timeout(self.traffic_light_red_time)
 
-    def arrivals(self, env, data):
-        """Generates cars every interval and adds them to the queue"""
+    def arrivals(self):
         while True:
-            print(f"Car arrives at {env.now}")
-            data.queue += 1
-            yield env.timeout(data.arrival_interval)
+            self.queue += 1
+            print(f"Car arrives at {self.env.now}, queue: {self.queue}")
+            yield self.env.timeout(self.arrival_interval)
 
-    def discharger(self, env, data):
-        """Releases cars while the signal light is green"""
-        green_end = env.now + data.traffic_light_green_time
+    def discharger(self):
+        green_end = self.env.now + self.traffic_light_green_time
         first = True
 
-        while env.now < green_end and data.queue > 0:
-            if first:
-                yield env.timeout(data.first_car_delay)
-                first = False
-            else:
-                yield env.timeout(data.saturation_headway)
+        while self.queue > 0:
+            wait = self.first_car_delay if first else self.saturation_headway
+            first = False
 
-            if env.now >= green_end:
+            yield self.env.timeout(wait)
+
+            if self.env.now > green_end:
                 break
 
-            data.queue -= 1
-            data.cars_accepted += 1
-            print(f"Car departs at {env.now}, queue left: {data.queue}")
-
+            self.queue -= 1
+            self.cars_accepted += 1
+            print(f"Car departs at {self.env.now}, queue: {self.queue}")
 
 
 if __name__ == "__main__":
     env = simpy.Environment()
-    data = traffic_data(env)
+    data = TrafficData(env)
     env.run(until=data.sim_duration)
+    print(f"\nTotal cars accepted: {data.cars_accepted}")
+    print(f"Cars still in queue: {data.queue}")
