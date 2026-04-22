@@ -28,17 +28,20 @@ def build_dataset():
 
     arrival_ns_values = [i/5 for i in range(1, 50, 1)]
     arrival_ew_values = [i/5 for i in range(1, 50, 1)]
+    print('building dataset... (results.txt)')
+    with open("results.txt", "w") as f:
+        print("arrival_ns,arrival_ew,g_ns,g_ew")
+        for a_ns in arrival_ns_values:
+            for a_ew in arrival_ew_values:
+                g_ns, g_ew = find_optimal_green(a_ns, a_ew)
 
-    for a_ns in arrival_ns_values:
-        for a_ew in arrival_ew_values:
-            g_ns, g_ew = find_optimal_green(a_ns, a_ew)
+                X.append([a_ns, a_ew])
+                y_ns.append(g_ns)
+                y_ew.append(g_ew)
 
-            X.append([a_ns, a_ew])
-            y_ns.append(g_ns)
-            y_ew.append(g_ew)
-
-            print(f"Data: arrivals=({a_ns},{a_ew}) → greens=({g_ns},{g_ew})")
-
+                # print(f"Data: arrivals=({a_ns},{a_ew}) → greens=({g_ns},{g_ew})", file=f)
+                print(a_ns, a_ew, g_ns, g_ew, file=f)
+    print('dataset built.')
     return np.array(X), np.array(y_ns), np.array(y_ew)
 
 
