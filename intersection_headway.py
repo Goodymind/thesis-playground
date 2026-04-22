@@ -7,10 +7,10 @@ class TrafficData:
         # inputs
         self.queue_ns = 0  # North-South queue
         self.queue_ew = 0  # East-West queue
-        self.traffic_light_green_time_ns  = 100 # NS red, EW green
-        self.traffic_light_green_time_ew = 30 # NS green, EW red
-        self.arrival_interval_ns  = 1
-        self.arrival_interval_ew  = 5
+        self.traffic_light_green_time_ns  = 40 # NS red, EW green
+        self.traffic_light_green_time_ew = 160 # NS green, EW red
+        self.arrival_interval_ns  = 0.5
+        self.arrival_interval_ew  = 1
         self.first_car_delay   = 3
         self.saturation_headway = 1
         self.sim_duration      = 200
