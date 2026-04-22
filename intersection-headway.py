@@ -56,7 +56,7 @@ class TrafficData:
         green_end = self.env.now + self.traffic_light_green_time_ns
         first = True
 
-        while self.queue_ns > 0 or self.env.now < green_end:
+        while self.env.now < green_end:
 
             if self.queue_ns == 0:
                 first = False
@@ -84,7 +84,7 @@ class TrafficData:
         green_end = self.env.now + self.traffic_light_green_time_ew
         first = True
 
-        while self.queue_ew > 0 or self.env.now < green_end:
+        while self.env.now < green_end:
 
             if self.queue_ew == 0:
                 first = False
