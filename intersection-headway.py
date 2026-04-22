@@ -117,3 +117,23 @@ if __name__ == "__main__":
     print(f"Cars still in queue (NS): {data.queue_ns}")
     print(f"Total cars accepted (EW): {data.cars_accepted_ew}")
     print(f"Cars still in queue (EW): {data.queue_ew}")
+    print(f"Total cars accepted: {data.cars_accepted_ns + data.cars_accepted_ew}")
+
+def generate(green_time_ns, green_time_ew, arrival_interval_ns, arrival_interval_ew):
+    env = simpy.Environment()
+    data = TrafficData(env)
+    data.traffic_light_green_time_ns = green_time_ns
+    data.traffic_light_green_time_ew = green_time_ew
+    data.arrival_interval_ns = arrival_interval_ns
+    data.arrival_interval_ew = arrival_interval_ew
+    env.run(until=data.sim_duration)
+    return {
+        "green_time_ns": green_time_ns,
+        "green_time_ew": green_time_ew,
+        "arrival_interval_ns": arrival_interval_ns,
+        "arrival_interval_ew": arrival_interval_ew,
+        "cars_accepted_ns": data.cars_accepted_ns,
+        "cars_accepted_ew": data.cars_accepted_ew,
+        "queue_ns": data.queue_ns,
+        "queue_ew": data.queue_ew,
+    }
