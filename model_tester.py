@@ -8,7 +8,7 @@ if __name__ == "__main__":
     model_ew.load_model("model_ew.json")
 
     # Example test
-    test_input = [[5.0, 3.0]]  # arrival rates for NS and EW
+    test_input = [[0.3, 3.0]]  # arrival rates for NS and EW
     predicted_g_ns = model_ns.predict(test_input)[0]
     predicted_g_ew = model_ew.predict(test_input)[0]
 

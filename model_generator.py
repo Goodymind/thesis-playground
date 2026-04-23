@@ -22,8 +22,7 @@ if __name__ == "__main__":
     X, y_ns, y_ew = get_dataset()
     print("dataset loaded.") 
     # split
-    X_train, X_test, y_ns_train, y_ns_test = train_test_split(X, y_ns, test_size=0.2)
-    _, _, y_ew_train, y_ew_test = train_test_split(X, y_ew, test_size=0.2)
+    X_train, X_test, y_ns_train, y_ns_test, y_ew_train, y_ew_test = train_test_split(X, y_ns, y_ew, test_size=0.2)
 
     # models
     model_ns = XGBRegressor(
