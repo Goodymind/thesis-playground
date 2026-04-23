@@ -13,14 +13,13 @@ class TrafficData:
         # inputs
         self.queue_ns = 0  # North-South queue
         self.queue_ew = 0  # East-West queue
-        self.traffic_light_green_time_ns  = 160 # NS red, EW green
-        self.traffic_light_green_time_ew = 160 # NS green, EW red
+        self.traffic_light_green_time_ns  = 20 # NS greed, EW red
+        self.traffic_light_green_time_ew = 20 # NS red, EW green
         self.arrival_interval_ns  = 1
         self.arrival_interval_ew  = 1
         self.first_car_delay   = 3
         self.saturation_headway = 1
-        self.sim_duration      = 3600
-        self.warmup_duration    = 100 
+        self.sim_duration      = 7200
 
         self.arrivals_timestamp_ns = deque()
         self.arrivals_timestamp_ew = deque()
@@ -48,19 +47,13 @@ class TrafficData:
     def arrivals_ns(self):
         while True:
             self.queue_ns += 1
-            if self.env.now >= self.warmup_duration:
-                self.arrivals_timestamp_ns.append(self.env.now)
-            else:
-                self.arrivals_timestamp_ns.append(None)  # sentinel
+            self.arrivals_timestamp_ns.append(self.env.now)
             yield self.env.timeout(random.expovariate(1.0 / self.arrival_interval_ns))
 
     def arrivals_ew(self):
         while True:
             self.queue_ew += 1
-            if self.env.now >= self.warmup_duration:
-                self.arrivals_timestamp_ew.append(self.env.now)
-            else:
-                self.arrivals_timestamp_ew.append(None)  # sentinel
+            self.arrivals_timestamp_ew.append(self.env.now)
             yield self.env.timeout(random.expovariate(1.0 / self.arrival_interval_ew))
 
     def discharger_ns(self):
@@ -88,10 +81,8 @@ class TrafficData:
 
             if self.queue_ns > 0:
                 self.queue_ns -= 1
-                ts = self.arrivals_timestamp_ns.popleft()
-                if ts is not None:
-                    self.cars_accepted_ns += 1
-                    self.total_wait_time_ns += self.env.now - ts
+                self.cars_accepted_ns += 1
+                self.total_wait_time_ns += self.env.now - self.arrivals_timestamp_ns.popleft()
 
     def discharger_ew(self):
         green_end = self.env.now + self.traffic_light_green_time_ew
@@ -118,10 +109,8 @@ class TrafficData:
 
             if self.queue_ew > 0:
                 self.queue_ew -= 1
-                ts = self.arrivals_timestamp_ew.popleft()
-                if ts is not None:
-                    self.cars_accepted_ew += 1
-                    self.total_wait_time_ew += self.env.now - ts
+                self.cars_accepted_ew += 1
+                self.total_wait_time_ew += self.env.now - self.arrivals_timestamp_ew.popleft()
 
 
 if __name__ == "__main__":

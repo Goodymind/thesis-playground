@@ -1,3 +1,5 @@
+from unittest import result
+
 import numpy as np
 from intersection_headway import generate
 import sys
@@ -10,7 +12,7 @@ def find_optimal_green(arrival_ns, arrival_ew):
     for g_ns in range(20, 161, 5):
         for g_ew in range(20, 161, 5):
 
-            result = generate(g_ns, g_ew, arrival_ns, arrival_ew)
+            result = generate(g_ns, g_ew, arrival_ns, arrival_ew, ns_first=True)
             # print(result, file=f)
             # Objective: maximize total accepted cars (or minimize total queue)
             score = result["cars_accepted_ns"] + result["cars_accepted_ew"] 
@@ -24,19 +26,25 @@ def find_optimal_green(arrival_ns, arrival_ew):
 def find_optimal_green_wait(arrival_ns, arrival_ew):
     best_score = float('inf')
     best_pair = (0, 0)
-
+    best_result = []
     for g_ns in range(20, 161, 5):
         for g_ew in range(20, 161, 5):
 
-            result = generate(g_ns, g_ew, arrival_ns, arrival_ew)
+            result1 = generate(g_ns, g_ew, arrival_ns, arrival_ew, ns_first=True)
+            result2 = generate(g_ns, g_ew, arrival_ns, arrival_ew, ns_first=False)
             # Objective: minimize average wait time
-            score = result["average_wait_time_ns"] + result["average_wait_time_ew"]
-            print(g_ns, g_ew, score, result["average_wait_time_ns"], result["average_wait_time_ew"])
+            score = result1["average_wait_time_ns"] + result1["average_wait_time_ew"]
+            score += result2["average_wait_time_ns"] + result2["average_wait_time_ew"]
+            print(f"{g_ns}, {g_ew} → Score: {score:.2f} seconds")
 
             if score < best_score:
                 best_score = score
                 best_pair = (g_ns, g_ew)
-
+                best_result = [result1, result2]
+    print(f"Best pair: {best_pair} with score: {best_score:.2f} seconds")
+    print("Best results:")
+    for res in best_result:
+        print(res)
     return best_pair
 
 def build_dataset(param="vehicle"):
@@ -74,4 +82,4 @@ if __name__ == "__main__":
     # param = sys.argv[1] if len(sys.argv) > 1 else "vehicle"
     # print(f"Building dataset with parameter: {param}")
     # X, y_ns, y_ew = build_dataset(param)
-    print(find_optimal_green_wait(1, 1))
+    print(find_optimal_green_wait(0.5, 0.5))
