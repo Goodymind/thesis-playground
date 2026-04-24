@@ -19,12 +19,20 @@ if __name__ == "__main__":
     model_ns = XGBRegressor()
     model_ew = XGBRegressor()
 
-    model_ns.load_model("wait_model_ns.json")
-    model_ew.load_model("wait_model_ew.json")
+    model = sys.argv[1] if len(sys.argv) > 1 else "vehicle"
+
+    if model == "wait":
+         model_ns.load_model("wait_model_ns.json")
+         model_ew.load_model("wait_model_ew.json")
+         print("Loaded wait time optimization models.")
+    else:
+        model_ns.load_model("model_ns.json")
+        model_ew.load_model("model_ns.json")
+        print("Loaded vehicle optimization models.")
 
     # Example test
-    arrival_ns = float(sys.argv[1]) if len(sys.argv) > 1 else 0.3
-    arrival_ew = float(sys.argv[2]) if len(sys.argv) > 2 else 3.0
+    arrival_ns = float(sys.argv[2]) if len(sys.argv) > 2 else 1
+    arrival_ew = float(sys.argv[3]) if len(sys.argv) > 3 else 3.0
     test_input = [[arrival_ns, arrival_ew]]  # arrival rates for NS and EW
 
     predicted_g_ns = model_ns.predict(test_input)[0]
