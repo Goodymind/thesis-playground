@@ -26,25 +26,30 @@ def find_optimal_green(arrival_ns, arrival_ew):
 def find_optimal_green_wait(arrival_ns, arrival_ew):
     best_score = float('inf')
     best_pair = (0, 0)
-    best_result = []
     for g_ns in range(20, 161, 5):
         for g_ew in range(20, 161, 5):
 
             result1 = generate(g_ns, g_ew, arrival_ns, arrival_ew, ns_first=True)
             result2 = generate(g_ns, g_ew, arrival_ns, arrival_ew, ns_first=False)
             # Objective: minimize average wait time
-            score = result1["average_wait_time_ns"] + result1["average_wait_time_ew"]
-            score += result2["average_wait_time_ns"] + result2["average_wait_time_ew"]
-            print(f"{g_ns}, {g_ew} → Score: {score:.2f} seconds")
+
+            all_waits = result1["wait_times_ns"] + result1["wait_times_ew"] + result2["wait_times_ns"] + result2["wait_times_ew"]
+
+            score = (np.mean(all_waits)* 0.2 +
+                     np.median(all_waits) * 0.15 +
+                     np.percentile(all_waits, 95) * 0.15)
+            result1_imbalance = abs(result1["average_wait_time_ns"] - result1["average_wait_time_ew"])
+            result2_imbalance = abs(result2["average_wait_time_ns"] - result2["average_wait_time_ew"])
+            imbalance_penalty = (result1_imbalance + result2_imbalance)
+            score += imbalance_penalty * 0.5
+
+            # print(f"{g_ns}, {g_ew} → Score: {score:.2f} \t - {imbalance_penalty} \t {result1["average_wait_time_ns"]:.2f} / {result1["average_wait_time_ew"]:.2f} \t {result2["average_wait_time_ns"]:.2f} / {result2["average_wait_time_ew"]:.2f}")
 
             if score < best_score:
                 best_score = score
                 best_pair = (g_ns, g_ew)
-                best_result = [result1, result2]
+                # best_result = [result1, result2]
     print(f"Best pair: {best_pair} with score: {best_score:.2f} seconds")
-    print("Best results:")
-    for res in best_result:
-        print(res)
     return best_pair
 
 def build_dataset(param="vehicle"):
@@ -52,9 +57,9 @@ def build_dataset(param="vehicle"):
     y_ns = []
     y_ew = []
 
-    arrival_ns_values = [i/5 for i in range(1, 50, 1)]
-    arrival_ew_values = [i/5 for i in range(1, 50, 1)]
-    print(f'building dataset... ({param}.txt)')
+    arrival_ns_values = [i/5 for i in range(1, 55, 1)]
+    arrival_ew_values = [i/5 for i in range(1, 55, 1)]
+    print(f'building dataset... ({param}_data.txt)')
     with open(f"{param}_data.txt", "w") as f:
         print("arrival_ns,arrival_ew,g_ns,g_ew")
         for a_ns in arrival_ns_values:
@@ -79,7 +84,7 @@ def build_dataset(param="vehicle"):
 
 if __name__ == "__main__":
 
-    # param = sys.argv[1] if len(sys.argv) > 1 else "vehicle"
-    # print(f"Building dataset with parameter: {param}")
-    # X, y_ns, y_ew = build_dataset(param)
-    print(find_optimal_green_wait(0.5, 0.5))
+    param = sys.argv[1] if len(sys.argv) > 1 else "vehicle"
+    print(f"Building dataset with parameter: {param}")
+    X, y_ns, y_ew = build_dataset(param)
+    # print(find_optimal_green_wait(0.2, 5))

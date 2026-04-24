@@ -1,4 +1,3 @@
-from functools import cached_property
 import sys
 
 import simpy
@@ -19,7 +18,7 @@ class TrafficData:
         self.arrival_interval_ew  = 1
         self.first_car_delay   = 3
         self.saturation_headway = 1
-        self.sim_duration      = 7200
+        self.sim_duration      = 600
 
         self.arrivals_timestamp_ns = deque()
         self.arrivals_timestamp_ew = deque()
@@ -29,6 +28,10 @@ class TrafficData:
         self.cars_accepted_ew = 0
         self.total_wait_time_ns = 0
         self.total_wait_time_ew = 0
+        self.wait_times_ns = []
+        self.wait_times_ew = []
+        self.max_wait_time_ns = 0
+        self.max_wait_time_ew = 0
 
         # start processes
         env.process(self.arrivals_ns())
@@ -82,7 +85,10 @@ class TrafficData:
             if self.queue_ns > 0:
                 self.queue_ns -= 1
                 self.cars_accepted_ns += 1
-                self.total_wait_time_ns += self.env.now - self.arrivals_timestamp_ns.popleft()
+                wait_time = self.env.now - self.arrivals_timestamp_ns.popleft()
+                self.total_wait_time_ns += wait_time
+                self.wait_times_ns.append(wait_time)
+                self.max_wait_time_ns = max(self.max_wait_time_ns, wait_time)
 
     def discharger_ew(self):
         green_end = self.env.now + self.traffic_light_green_time_ew
@@ -110,8 +116,10 @@ class TrafficData:
             if self.queue_ew > 0:
                 self.queue_ew -= 1
                 self.cars_accepted_ew += 1
-                self.total_wait_time_ew += self.env.now - self.arrivals_timestamp_ew.popleft()
-
+                wait_time = self.env.now - self.arrivals_timestamp_ew.popleft()
+                self.total_wait_time_ew += wait_time
+                self.wait_times_ew.append(wait_time)
+                self.max_wait_time_ew = max(self.max_wait_time_ew, wait_time)
 
 if __name__ == "__main__":
     env = simpy.Environment()
@@ -127,6 +135,9 @@ if __name__ == "__main__":
     print(f"Total wait time (EW): {data.total_wait_time_ew:.2f} seconds")
     print(f"Average wait time (NS): {data.total_wait_time_ns / data.cars_accepted_ns if data.cars_accepted_ns > 0 else 0}")
     print(f"Average wait time (EW): {data.total_wait_time_ew / data.cars_accepted_ew if data.cars_accepted_ew > 0 else 0}")
+    print(f"Maximum wait time: {data.max_wait_time_ns:.2f} seconds (NS), {data.max_wait_time_ew:.2f} seconds (EW)")
+
+
 
 
 def generate(green_time_ns, green_time_ew, arrival_interval_ns, arrival_interval_ew, ns_first = True):
@@ -149,5 +160,9 @@ def generate(green_time_ns, green_time_ew, arrival_interval_ns, arrival_interval
         "total_wait_time_ns": data.total_wait_time_ns,
         "total_wait_time_ew": data.total_wait_time_ew,
         "average_wait_time_ns": data.total_wait_time_ns / data.cars_accepted_ns if data.cars_accepted_ns > 0 else 0,
-        "average_wait_time_ew": data.total_wait_time_ew / data.cars_accepted_ew if data.cars_accepted_ew > 0 else 0
+        "average_wait_time_ew": data.total_wait_time_ew / data.cars_accepted_ew if data.cars_accepted_ew > 0 else 0,
+        "max_wait_time_ns": data.max_wait_time_ns,
+        "max_wait_time_ew": data.max_wait_time_ew,
+        "wait_times_ns": data.wait_times_ns,
+        "wait_times_ew": data.wait_times_ew
     }
