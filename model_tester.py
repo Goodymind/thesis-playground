@@ -20,6 +20,7 @@ def compare(predicted_g_ns, predicted_g_ew, arrival_ns, arrival_ew):
     print(f"Baseline ({wg_ns:.2f}s, {wg_ew:.2f}s, NS first): Total accepted: {baseline1['cars_accepted_ns'] + baseline1['cars_accepted_ew']}, Average wait time: {baseline1['total_wait_time_ns'] / baseline1['cars_accepted_ns'] if baseline1['cars_accepted_ns'] > 0 else 0:.2f} sec (NS), {baseline1['total_wait_time_ew'] / baseline1['cars_accepted_ew'] if baseline1['cars_accepted_ew'] > 0 else 0:.2f} sec (EW)")
     print(f"Baseline ({wg_ns:.2f}s, {wg_ew:.2f}s, EW first): Total accepted: {baseline2['cars_accepted_ns'] + baseline2['cars_accepted_ew']}, Average wait time: {baseline2['total_wait_time_ns'] / baseline2['cars_accepted_ns'] if baseline2['cars_accepted_ns'] > 0 else 0:.2f} sec (NS), {baseline2['total_wait_time_ew'] / baseline2['cars_accepted_ew'] if baseline2['cars_accepted_ew'] > 0 else 0:.2f} sec (EW)")
 
+
 if __name__ == "__main__":
     model_ns = XGBRegressor()
     model_ew = XGBRegressor()
@@ -36,8 +37,8 @@ if __name__ == "__main__":
         print("Loaded vehicle optimization models.")
 
     # Example test
-    arrival_ns = float(sys.argv[2]) if len(sys.argv) > 2 else 1
-    arrival_ew = float(sys.argv[3]) if len(sys.argv) > 3 else 3.0
+    arrival_ns = float(sys.argv[2]) if len(sys.argv) > 2 else 2
+    arrival_ew = float(sys.argv[3]) if len(sys.argv) > 3 else 4
     test_input = [[arrival_ns, arrival_ew]]  # arrival rates for NS and EW
 
     predicted_g_ns = model_ns.predict(test_input)[0]
