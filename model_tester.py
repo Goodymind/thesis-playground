@@ -1,6 +1,7 @@
 from xgboost import XGBRegressor
 import sys
 from intersection_headway import generate
+import numpy as np
 
 def compare(predicted_g_ns, predicted_g_ew, arrival_ns, arrival_ew):
     result1 = generate(predicted_g_ns, predicted_g_ew, arrival_ns, arrival_ew, ns_first=True)
@@ -26,8 +27,8 @@ if __name__ == "__main__":
          model_ew.load_model("wait_model_ew.json")
          print("Loaded wait time optimization models.")
     else:
-        model_ns.load_model("model_ns.json")
-        model_ew.load_model("model_ns.json")
+        model_ns.load_model("vehicle_model_ns.json")
+        model_ew.load_model("vehicle_model_ew.json")
         print("Loaded vehicle optimization models.")
 
     # Example test
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     test_input = [[arrival_ns, arrival_ew]]  # arrival rates for NS and EW
 
     predicted_g_ns = model_ns.predict(test_input)[0]
-    predicted_g_ew = model_ew.predict(test_input)[0]
+    predicted_g_ew = model_ew.predict(np.column_stack([test_input, [predicted_g_ns]]))[0]
 
     print(f"Predicted green times for input {test_input[0]}: NS={predicted_g_ns:.2f} sec, EW={predicted_g_ew:.2f} sec")
     compare(predicted_g_ns, predicted_g_ew, arrival_ns, arrival_ew)

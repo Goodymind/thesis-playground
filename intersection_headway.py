@@ -12,13 +12,13 @@ class TrafficData:
         # inputs
         self.queue_ns = 0  # North-South queue
         self.queue_ew = 0  # East-West queue
-        self.traffic_light_green_time_ns  = 20 # NS greed, EW red
-        self.traffic_light_green_time_ew = 20 # NS red, EW green
+        self.traffic_light_green_time_ns  = 160 # NS greed, EW red
+        self.traffic_light_green_time_ew = 160 # NS red, EW green
         self.arrival_interval_ns  = 1
         self.arrival_interval_ew  = 1
         self.first_car_delay   = 3
         self.saturation_headway = 1
-        self.sim_duration      = 600
+        self.sim_duration      = (self.traffic_light_green_time_ns + self.traffic_light_green_time_ew) * 2
 
         self.arrivals_timestamp_ns = deque()
         self.arrivals_timestamp_ew = deque()
@@ -41,22 +41,28 @@ class TrafficData:
     def signal_light(self):
         while True:
             if self.ns_first:
+                # print('ns green')
                 yield self.env.process(self.discharger_ns())
+                # print('ew green')
                 yield self.env.process(self.discharger_ew())
             else:
+                # print('ew green')
                 yield self.env.process(self.discharger_ew())
+                # print('ns green')
                 yield self.env.process(self.discharger_ns())
 
     def arrivals_ns(self):
         while True:
             self.queue_ns += 1
             self.arrivals_timestamp_ns.append(self.env.now)
+            # print(f"Car arrived at NS at time {self.env.now:.2f} seconds. Queue length: {self.queue_ns}")
             yield self.env.timeout(random.expovariate(1.0 / self.arrival_interval_ns))
 
     def arrivals_ew(self):
         while True:
             self.queue_ew += 1
             self.arrivals_timestamp_ew.append(self.env.now)
+            # print(f"Car arrived at EW at time {self.env.now:.2f} seconds. Queue length: {self.queue_ew}")
             yield self.env.timeout(random.expovariate(1.0 / self.arrival_interval_ew))
 
     def discharger_ns(self):
@@ -83,6 +89,7 @@ class TrafficData:
                 break
 
             if self.queue_ns > 0:
+                # print(f"Car discharged from NS at time {self.env.now:.2f} seconds. Queue length: {self.queue_ns - 1}")
                 self.queue_ns -= 1
                 self.cars_accepted_ns += 1
                 wait_time = self.env.now - self.arrivals_timestamp_ns.popleft()
@@ -114,6 +121,7 @@ class TrafficData:
                 break
 
             if self.queue_ew > 0:
+                # print(f"Car discharged from EW at time {self.env.now:.2f} seconds. Queue length: {self.queue_ew - 1}")
                 self.queue_ew -= 1
                 self.cars_accepted_ew += 1
                 wait_time = self.env.now - self.arrivals_timestamp_ew.popleft()
