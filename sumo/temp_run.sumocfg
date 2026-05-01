@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sumoConfiguration>
+    <input>
+        <net-file value="C:\Users\ASUS\thesis-playground\sumo\4way.net.xml" />
+        <route-files value="C:\Users\ASUS\thesis-playground\sumo\4way.rou.xml" />
+        <additional-files value="C:\Users\ASUS\thesis-playground\sumo\temp_tl.xml" />
+    </input>
+    <output>
+        <tripinfo-output value="C:\Users\ASUS\thesis-playground\sumo\temp_tripinfo.xml" />
+    </output>
+    <time>
+        <end value="600" />
+    </time>
+</sumoConfiguration>

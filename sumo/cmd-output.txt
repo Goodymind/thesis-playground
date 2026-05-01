@@ -1,0 +1,49 @@
+============================================================
+  OPTIMIZATION COMPLETE
+============================================================
+
+  Best phase durations:
+    Green NS  (phase 0): 10s
+    Yellow NS (phase 1): 3s
+    Green WE  (phase 2): 11s
+    Yellow WE (phase 3): 3s
+
+  Performance metrics:
+    Avg waiting time : 3.39s
+    Avg travel time  : 26.15s
+    Vehicles departed: 287
+
+  Optimal TL config saved to: optimal_tl.xml
+
+  Generation history (avg waiting time):
+   Gen      Best       Avg
+     1      5.00      8.48
+     2      4.64      5.80
+     3      4.64      5.52
+     4      4.64      5.44
+     5      4.64      6.14
+     6      4.06      4.75
+     7      3.39      4.72
+     8      3.39      4.11
+     9      3.39      3.93
+    10      3.39      3.49
+    11      3.39      3.53
+    12      3.39      3.91
+    13      3.39      3.55
+    14      3.39      3.50
+    15      3.39      4.04
+    16      3.39      3.40
+    17      3.39      3.45
+    18      3.39      3.45
+    19      3.39      3.59
+    20      3.39      3.70
+    21      3.39      3.76
+    22      3.39      4.00
+    23      3.39      3.67
+    24      3.39      3.69
+    25      3.39      3.56
+    26      3.39      3.90
+    27      3.39      3.50
+    28      3.39      3.66
+    29      3.39      3.91
+    30      3.39      3.90
