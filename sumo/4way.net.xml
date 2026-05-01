@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-05-01T16:51:00.576208+08:00 by Eclipse SUMO netedit 1.26.0
+<!-- generated on 2026-05-01T21:37:31.820521+08:00 by Eclipse SUMO netedit 1.26.0
 <neteditConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/neteditConfiguration.xsd">
 
     <input>
-        <sumo-net-file value="C:\Users\ASUS\thesis-sumo\4way.net.xml"/>
+        <sumocfg-file value="C:\Users\ASUS\thesis-playground\sumo\4way.sumocfg"/>
+        <route-files value="C:\Users\ASUS\thesis-playground\sumo\4way.rou.xml"/>
+        <sumo-net-file value="C:\Users\ASUS\thesis-playground\sumo\4way.net.xml"/>
     </input>
 
     <output>
-        <output-file value="C:\Users\ASUS\thesis-sumo\4way.net.xml"/>
+        <output-file value="C:\Users\ASUS\thesis-playground\sumo\4way.net.xml"/>
     </output>
 
     <processing>
@@ -63,10 +65,10 @@
         <lane id="E5_0" index="0" speed="13.89" length="86.40" shape="13.60,-1.60 100.00,-1.60"/>
     </edge>
 
-    <tlLogic id="junction" type="static" programID="0" offset="0">
-        <phase duration="42" state="GGGr"/>
+    <tlLogic id="junction" type="static" programID="ga" offset="0">
+        <phase duration="30" state="GGGr"/>
         <phase duration="3"  state="yyyr"/>
-        <phase duration="42" state="rrrG"/>
+        <phase duration="30" state="rrrG"/>
         <phase duration="3"  state="rrry"/>
     </tlLogic>
 
