@@ -340,7 +340,7 @@ def run_ga():
     print(f"    Avg travel time  : {m.get('avg_travel',0):.2f}s")
     print(f"    Throughput       : {m.get('arrived','?')} / {m.get('departed','?')} vehicles arrived")
 
-    out = str(SCRIPT_DIR / "optimal_tl.xml")
+    out = str(SCRIPT_DIR / f"{OBJECTIVE}_optimal_tl.xml")
     make_temp_tl(best.phases, out)
     print(f"\n  Optimal TL config saved to: {out}")
 
