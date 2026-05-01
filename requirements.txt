@@ -1,7 +1,10 @@
+eclipse-sumo==1.26.0
 joblib==1.5.3
 numpy==2.4.4
 scikit-learn==1.8.0
 scipy==1.17.1
 simpy==4.1.1
+sumolib==1.26.0
 threadpoolctl==3.6.0
+traci==1.26.0
 xgboost==3.2.0
