@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <additional>
     <tlLogic id="junction" type="static" programID="ga" offset="0">
-        <phase duration="10" state="GGGr" />
+        <phase duration="45" state="GGGr" />
         <phase duration="3" state="yyyr" />
-        <phase duration="11" state="rrrG" />
+        <phase duration="62" state="rrrG" />
         <phase duration="3" state="rrry" />
     </tlLogic>
     <tlLogicController id="junction" programID="ga" begin="0" />

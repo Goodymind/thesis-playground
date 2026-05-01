@@ -1,15 +1,21 @@
 """
 GA Traffic Light Optimizer for 4-way SUMO intersection
 =======================================================
-Optimizes the 4 phase durations in 4way.xml using a Genetic Algorithm.
-Fitness = minimize average waiting time across all vehicles.
+Optimizes the 4 phase durations using a Genetic Algorithm.
+
+Fitness objectives (select via --objective):
+  wait_time  : minimize average waiting time per vehicle (default)
+  throughput : maximize vehicles that complete their trip
 
 Requirements:
-    pip install sumolib traci
+    pip install traci
     SUMO must be installed and SUMO_HOME must be set.
 
 Usage:
-    python ga_optimizer.py
+    python ga_optimizer.py                          # optimize wait time
+    python ga_optimizer.py --objective throughput   # optimize throughput
+    python ga_optimizer.py --once                   # single baseline run
+    python ga_optimizer.py --once --phases 42 3 42 3
 """
 
 import os
@@ -23,255 +29,256 @@ from dataclasses import dataclass, field
 from typing import List, Tuple
 
 # ──────────────────────────────────────────────
-# Configuration
+# File paths  (resolved relative to this script)
 # ──────────────────────────────────────────────
-# Resolve all file paths relative to this script's directory,
-# so the script works regardless of which directory you run it from.
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
-SUMO_CFG        = str(SCRIPT_DIR / "4way.sumocfg")
-ADDITIONAL_FILE = str(SCRIPT_DIR / "4way.xml")
-NET_FILE        = str(SCRIPT_DIR / "4way.net.xml")
-ROUTE_FILE      = str(SCRIPT_DIR / "4way.rou.xml")
-SIM_DURATION    = 600              # seconds (matches your flow end time)
-TL_ID           = "junction"
+NET_FILE   = str(SCRIPT_DIR / "4way.net.xml")
+ROUTE_FILE = str(SCRIPT_DIR / "4way.rou.xml")
+ADD_FILE   = str(SCRIPT_DIR / "4way.xml")       # original, not loaded in GA runs
+SIM_END    = 600        # seconds — matches your flow end time
+TL_ID      = "junction"
 
-# Phase indices in 4way.xml
-# Phase 0: Green NS  (state "Gr")
-# Phase 1: Yellow NS (state "yr")
-# Phase 2: Green WE  (state "rG")
-# Phase 3: Yellow WE (state "ry")
-NUM_PHASES = 4
+# Phase states from 4way.net.xml (4 chars = 4 link indices)
+PHASE_STATES = ["GGGr", "yyyr", "rrrG", "rrry"]
 
-# Duration bounds (seconds)
+# Duration bounds (seconds) — only green phases are evolved
 MIN_GREEN    = 10
 MAX_GREEN    = 90
-YELLOW_FIXED = 3   # Yellow phases are kept fixed for safety
+YELLOW_FIXED = 3
 
+# ──────────────────────────────────────────────
+# Fitness objective
+# "wait_time"  — minimize avg wait per vehicle
+# "throughput" — maximize vehicles that finish their trip
+# Set by --objective flag; overriding this constant directly also works.
+# ──────────────────────────────────────────────
+OBJECTIVE = "wait_time"
+
+# ──────────────────────────────────────────────
 # GA parameters
+# ──────────────────────────────────────────────
 POPULATION_SIZE = 20
 GENERATIONS     = 30
 MUTATION_RATE   = 0.2
-MUTATION_STD    = 5      # stddev of gaussian mutation in seconds
-ELITISM_COUNT   = 2      # top N individuals carried unchanged to next gen
+MUTATION_STD    = 5       # Gaussian std-dev for green phase mutation (seconds)
+ELITISM_COUNT   = 2
 TOURNAMENT_SIZE = 3
 
-# Output
-OUTPUT_FILE = "simulation_output.xml"
 
-# ──────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────
+# ══════════════════════════════════════════════
+# SUMO helpers
+# ══════════════════════════════════════════════
+
 def check_sumo():
-    """Verify SUMO is accessible."""
     sumo_home = os.environ.get("SUMO_HOME")
     if not sumo_home:
-        print("ERROR: SUMO_HOME environment variable is not set.")
-        print("  Set it with: export SUMO_HOME=/path/to/sumo")
+        print("ERROR: SUMO_HOME is not set.")
+        print("  export SUMO_HOME=/path/to/sumo")
         sys.exit(1)
-
-    try:
-        sys.path.append(os.path.join(sumo_home, "tools"))
-        import traci
-        return traci
-    except ImportError:
-        print("ERROR: traci not found. Install with: pip install traci")
-        sys.exit(1)
+    return sumo_home
 
 
-def make_temp_additional(phase_durations: List[int], out_path: str = str(SCRIPT_DIR / "temp_tl.xml")):
+def make_temp_tl(phase_durations: List[int],
+                 out_path: str = str(SCRIPT_DIR / "temp_tl.xml")) -> str:
     """
-    Write a temporary additional file with the given phase durations.
+    Write an additional file containing our GA-evolved TL program.
 
-    The net file already contains a tlLogic with programID="0", so we use
-    programID="ga" to avoid the duplicate-ID error. A <tlLogicController>
-    element then switches the junction to our new program at t=0.
+    Uses programID='ga' (not '0') to avoid clashing with the tlLogic
+    already embedded in 4way.net.xml. A <tlLogicController> activates
+    it at t=0, overriding the default program.
     """
     root = ET.Element("additional")
-
-    # New program with a unique programID
     tl = ET.SubElement(root, "tlLogic",
-                        id=TL_ID, type="static", programID="ga", offset="0")
-    states = ["GGGr", "yyyr", "rrrG", "rrry"]
-    for dur, state in zip(phase_durations, states):
+                       id=TL_ID, type="static", programID="ga", offset="0")
+    for dur, state in zip(phase_durations, PHASE_STATES):
         ET.SubElement(tl, "phase", duration=str(dur), state=state)
-
-    # Switch the junction to our program at simulation start
-    ET.SubElement(root, "tlLogicController",
-                  id=TL_ID, programID="ga", begin="0")
-
+    ET.SubElement(root, "tlLogicController", id=TL_ID, programID="ga", begin="0")
     tree = ET.ElementTree(root)
     ET.indent(tree, space="    ")
     tree.write(out_path, encoding="unicode", xml_declaration=True)
     return out_path
 
 
-def make_temp_cfg(additional_path: str, output_path: str,
-                   cfg_out: str = str(SCRIPT_DIR / "temp_run.sumocfg")) -> str:
+def make_temp_cfg(tl_path: str,
+                  tripinfo_path: str,
+                  cfg_path: str = str(SCRIPT_DIR / "temp_run.sumocfg")) -> str:
     """
-    Write a temporary sumocfg.
-    Only temp_tl.xml is loaded as additional — NOT 4way.xml.
-    4way.xml contains a tlLogic that duplicates the net file's own tlLogic,
-    causing SUMO to error. Our temp_tl.xml uses programID='ga' to coexist
-    safely with the net's built-in programID='0'.
+    Write a temporary .sumocfg.
+    We do NOT include 4way.xml here — it also defines a tlLogic with
+    programID='0' which would duplicate the one in the net file.
     """
     root = ET.Element("sumoConfiguration")
     inp = ET.SubElement(root, "input")
     ET.SubElement(inp, "net-file",         value=NET_FILE)
     ET.SubElement(inp, "route-files",      value=ROUTE_FILE)
-    ET.SubElement(inp, "additional-files", value=additional_path)  # only temp_tl.xml
-
+    ET.SubElement(inp, "additional-files", value=tl_path)
     out = ET.SubElement(root, "output")
-    ET.SubElement(out, "tripinfo-output", value=output_path)
-
+    ET.SubElement(out, "tripinfo-output",  value=tripinfo_path)
     time = ET.SubElement(root, "time")
-    ET.SubElement(time, "end", value=str(SIM_DURATION))
-
+    ET.SubElement(time, "end",             value=str(SIM_END))
     tree = ET.ElementTree(root)
     ET.indent(tree, space="    ")
-    tree.write(cfg_out, encoding="unicode", xml_declaration=True)
-    return cfg_out
+    tree.write(cfg_path, encoding="unicode", xml_declaration=True)
+    return cfg_path
 
 
 def run_simulation(phase_durations: List[int]) -> dict:
-    """
-    Run SUMO with the given phase durations.
-    Returns a dict with fitness metrics.
-    """
-    tl_file  = make_temp_additional(phase_durations, str(SCRIPT_DIR / "temp_tl.xml"))
-    out_file = str(SCRIPT_DIR / "temp_tripinfo.xml")
-    cfg_file = make_temp_cfg(tl_file, out_file)
+    """Run SUMO headlessly and return parsed metrics."""
+    tl_path       = make_temp_tl(phase_durations)
+    tripinfo_path = str(SCRIPT_DIR / "temp_tripinfo.xml")
+    cfg_path      = make_temp_cfg(tl_path, tripinfo_path)
 
-    sumo_binary = os.path.join(os.environ["SUMO_HOME"], "bin", "sumo")
-
+    sumo_bin = os.path.join(os.environ["SUMO_HOME"], "bin", "sumo")
     result = subprocess.run(
-        [sumo_binary, "-c", cfg_file, "--no-warnings", "--no-step-log"],
+        [sumo_bin, "-c", cfg_path, "--no-warnings", "--no-step-log"],
         capture_output=True, text=True
     )
-
     if result.returncode != 0:
-        print(f"  [SUMO ERROR] {result.stderr[:300]}")
-        return {"avg_wait": float("inf"), "avg_travel": float("inf"), "departed": 0}
+        print(f"  [SUMO ERROR] {result.stderr[:400]}")
+        return _empty_metrics()
 
-    return parse_tripinfo(out_file)
+    return parse_tripinfo(tripinfo_path)
 
 
-def parse_tripinfo(tripinfo_path: str) -> dict:
-    """Parse SUMO tripinfo XML and extract key metrics."""
-    if not Path(tripinfo_path).exists():
-        return {"avg_wait": float("inf"), "avg_travel": float("inf"), "departed": 0}
+def parse_tripinfo(path: str) -> dict:
+    """
+    Parse tripinfo XML.
 
-    tree = ET.parse(tripinfo_path)
+    SUMO writes one <tripinfo> per departed vehicle.
+    arrival==-1 means the vehicle was still in the network at sim end.
+    Throughput = number of vehicles with a valid arrival time.
+    """
+    if not Path(path).exists():
+        return _empty_metrics()
+
+    tree = ET.parse(path)
     root = tree.getroot()
 
-    wait_times   = []
-    travel_times = []
+    wait_times, travel_times = [], []
+    arrived = 0
 
     for trip in root.findall("tripinfo"):
-        wt = float(trip.get("waitingTime", 0))
-        tt = float(trip.get("duration", 0))
-        wait_times.append(wt)
-        travel_times.append(tt)
+        wait_times.append(float(trip.get("waitingTime", 0)))
+        travel_times.append(float(trip.get("duration",    0)))
+        if float(trip.get("arrival", -1)) >= 0:
+            arrived += 1
 
     n = len(wait_times)
     if n == 0:
-        return {"avg_wait": float("inf"), "avg_travel": float("inf"), "departed": 0}
+        return _empty_metrics()
 
     return {
         "avg_wait":   sum(wait_times)   / n,
         "avg_travel": sum(travel_times) / n,
-        "departed":   n,
         "total_wait": sum(wait_times),
+        "departed":   n,
+        "arrived":    arrived,
+        "throughput": arrived,
+    }
+
+
+def _empty_metrics() -> dict:
+    return {
+        "avg_wait": float("inf"), "avg_travel": float("inf"),
+        "total_wait": float("inf"), "departed": 0,
+        "arrived": 0, "throughput": 0,
     }
 
 
 def fitness(metrics: dict) -> float:
     """
-    Lower is better.
-    Primary: average waiting time
-    Penalty: if very few vehicles departed (simulation may have failed)
+    Scalar fitness score — lower is always better (GA minimises).
+
+    wait_time:
+        = avg waiting time in seconds
+
+    throughput:
+        = -throughput  (negate to turn maximisation into minimisation)
+          with a tiny avg_wait tie-breaker so equal-throughput solutions
+          still prefer less waiting.
     """
     if metrics["departed"] == 0:
         return float("inf")
+
+    if OBJECTIVE == "throughput":
+        return -metrics["throughput"] + metrics["avg_wait"] * 1e-3
+
+    # Default: wait_time
     return metrics["avg_wait"]
 
 
-# ──────────────────────────────────────────────
-# GA Components
-# ──────────────────────────────────────────────
+# ══════════════════════════════════════════════
+# GA components
+# ══════════════════════════════════════════════
+
 @dataclass
 class Individual:
     # [green_NS, yellow_NS, green_WE, yellow_WE]
-    phases: List[int]
-    metrics: dict = field(default_factory=dict)
-    score: float = float("inf")
+    phases:  List[int]
+    metrics: dict  = field(default_factory=_empty_metrics)
+    score:   float = float("inf")
 
     def evaluate(self):
         self.metrics = run_simulation(self.phases)
         self.score   = fitness(self.metrics)
 
     def __repr__(self):
-        return (f"phases={self.phases}  "
-                f"avg_wait={self.metrics.get('avg_wait', '?'):.1f}s  "
-                f"departed={self.metrics.get('departed', '?')}")
+        m = self.metrics
+        w = f"{m['avg_wait']:.1f}s" if isinstance(m.get("avg_wait"), float) else "?"
+        return (f"phases={self.phases}  avg_wait={w}  "
+                f"arrived={m.get('arrived','?')}/{m.get('departed','?')}")
 
 
 def random_individual() -> Individual:
-    phases = [
+    return Individual(phases=[
         random.randint(MIN_GREEN, MAX_GREEN),  # green NS
         YELLOW_FIXED,                           # yellow NS (fixed)
         random.randint(MIN_GREEN, MAX_GREEN),  # green WE
         YELLOW_FIXED,                           # yellow WE (fixed)
-    ]
-    return Individual(phases=phases)
+    ])
 
 
-def tournament_select(population: List[Individual]) -> Individual:
-    contestants = random.sample(population, TOURNAMENT_SIZE)
-    return min(contestants, key=lambda x: x.score)
+def tournament_select(pop: List[Individual]) -> Individual:
+    return min(random.sample(pop, TOURNAMENT_SIZE), key=lambda x: x.score)
 
 
 def crossover(p1: Individual, p2: Individual) -> Tuple[Individual, Individual]:
-    """Single-point crossover on the mutable phase indices (0 and 2)."""
-    mutable = [0, 2]
-    c1 = copy.deepcopy(p1.phases)
-    c2 = copy.deepcopy(p2.phases)
-    if random.random() < 0.5:
-        c1[0], c2[0] = c2[0], c1[0]
-    if random.random() < 0.5:
-        c1[2], c2[2] = c2[2], c1[2]
+    c1, c2 = copy.copy(p1.phases), copy.copy(p2.phases)
+    if random.random() < 0.5: c1[0], c2[0] = c2[0], c1[0]
+    if random.random() < 0.5: c1[2], c2[2] = c2[2], c1[2]
     return Individual(phases=c1), Individual(phases=c2)
 
 
 def mutate(ind: Individual) -> Individual:
-    """Gaussian mutation on green phases only."""
     phases = copy.copy(ind.phases)
-    for i in [0, 2]:  # only green phases
+    for i in [0, 2]:   # green phases only
         if random.random() < MUTATION_RATE:
             delta = int(random.gauss(0, MUTATION_STD))
             phases[i] = max(MIN_GREEN, min(MAX_GREEN, phases[i] + delta))
     return Individual(phases=phases)
 
 
-# ──────────────────────────────────────────────
-# Main GA Loop
-# ──────────────────────────────────────────────
+# ══════════════════════════════════════════════
+# Main GA loop
+# ══════════════════════════════════════════════
+
 def run_ga():
     check_sumo()
-    print("=" * 60)
-    print("  GA Traffic Light Optimizer")
-    print(f"  Population: {POPULATION_SIZE}  |  Generations: {GENERATIONS}")
-    print(f"  Mutation rate: {MUTATION_RATE}  |  Elitism: {ELITISM_COUNT}")
-    print("=" * 60)
+    print("=" * 62)
+    print(f"  GA Traffic Light Optimizer  |  Objective: {OBJECTIVE}")
+    print(f"  Pop: {POPULATION_SIZE}  Gens: {GENERATIONS}  "
+          f"Mut: {MUTATION_RATE}  Elite: {ELITISM_COUNT}")
+    print("=" * 62)
 
-    # --- Initial population ---
-    print("\n[Gen 0] Initializing population...")
-    # Seed with the original config as one individual
-    population = [Individual(phases=[30, YELLOW_FIXED, 30, YELLOW_FIXED])]
+    # Seed with the original 42/3/42/3 timings as one individual
+    print("\n[Gen 0] Initialising population...")
+    population: List[Individual] = [
+        Individual(phases=[42, YELLOW_FIXED, 42, YELLOW_FIXED])
+    ]
     while len(population) < POPULATION_SIZE:
         population.append(random_individual())
 
-    print(f"  Evaluating {len(population)} individuals...")
     for i, ind in enumerate(population):
         ind.evaluate()
         print(f"  [{i+1:2d}/{POPULATION_SIZE}] {ind}")
@@ -282,25 +289,18 @@ def run_ga():
 
     history = []
 
-    # --- Evolution ---
     for gen in range(1, GENERATIONS + 1):
         print(f"\n[Gen {gen}] Evolving...")
 
-        # Elitism: carry top individuals unchanged
-        next_gen = [copy.deepcopy(ind) for ind in population[:ELITISM_COUNT]]
-
-        # Fill rest via selection, crossover, mutation
+        next_gen: List[Individual] = [
+            copy.deepcopy(ind) for ind in population[:ELITISM_COUNT]
+        ]
         while len(next_gen) < POPULATION_SIZE:
-            p1 = tournament_select(population)
-            p2 = tournament_select(population)
-            c1, c2 = crossover(p1, p2)
-            c1 = mutate(c1)
-            c2 = mutate(c2)
-            next_gen.extend([c1, c2])
-
+            c1, c2 = crossover(tournament_select(population),
+                               tournament_select(population))
+            next_gen += [mutate(c1), mutate(c2)]
         next_gen = next_gen[:POPULATION_SIZE]
 
-        # Evaluate new individuals only (elites already have scores)
         new_inds = next_gen[ELITISM_COUNT:]
         print(f"  Evaluating {len(new_inds)} new individuals...")
         for i, ind in enumerate(new_inds):
@@ -315,78 +315,82 @@ def run_ga():
             best = copy.deepcopy(gen_best)
             print(f"  *** New best! {best}")
         else:
-            print(f"  Best this gen: {gen_best}")
-            print(f"  Overall best:  {best}")
+            print(f"  Best this gen : {gen_best}")
+            print(f"  Overall best  : {best}")
 
+        finite = [x.score for x in population if x.score < float("inf")]
         history.append({
-            "gen":      gen,
-            "best":     gen_best.score,
-            "avg":      sum(x.score for x in population if x.score < float("inf"))
-                        / max(1, sum(1 for x in population if x.score < float("inf")))
+            "gen":  gen,
+            "best": gen_best.score,
+            "avg":  sum(finite) / len(finite) if finite else float("inf"),
         })
 
-    # ── Final results ──
-    print("\n" + "=" * 60)
-    print("  OPTIMIZATION COMPLETE")
-    print("=" * 60)
+    # ── Final report ──
+    print("\n" + "=" * 62)
+    print("  OPTIMISATION COMPLETE")
+    print("=" * 62)
     print(f"\n  Best phase durations:")
     print(f"    Green NS  (phase 0): {best.phases[0]}s")
     print(f"    Yellow NS (phase 1): {best.phases[1]}s")
     print(f"    Green WE  (phase 2): {best.phases[2]}s")
     print(f"    Yellow WE (phase 3): {best.phases[3]}s")
+    m = best.metrics
     print(f"\n  Performance metrics:")
-    print(f"    Avg waiting time : {best.metrics.get('avg_wait',  '?'):.2f}s")
-    print(f"    Avg travel time  : {best.metrics.get('avg_travel','?'):.2f}s")
-    print(f"    Vehicles departed: {best.metrics.get('departed',  '?')}")
+    print(f"    Avg waiting time : {m.get('avg_wait',  0):.2f}s")
+    print(f"    Avg travel time  : {m.get('avg_travel',0):.2f}s")
+    print(f"    Throughput       : {m.get('arrived','?')} / {m.get('departed','?')} vehicles arrived")
 
-    # Write the optimal TL config
-    make_temp_additional(best.phases, str(SCRIPT_DIR / "optimal_tl.xml"))
-    print(f"\n  Optimal TL config saved to: optimal_tl.xml")
+    out = str(SCRIPT_DIR / "optimal_tl.xml")
+    make_temp_tl(best.phases, out)
+    print(f"\n  Optimal TL config saved to: {out}")
 
-    # Print generation history
-    print("\n  Generation history (avg waiting time):")
-    print(f"  {'Gen':>4}  {'Best':>8}  {'Avg':>8}")
+    print(f"\n  Generation history (objective: {OBJECTIVE}):")
+    print(f"  {'Gen':>4}  {'Best score':>12}  {'Avg score':>12}")
     for h in history:
-        print(f"  {h['gen']:>4}  {h['best']:>8.2f}  {h['avg']:>8.2f}")
+        print(f"  {h['gen']:>4}  {h['best']:>12.4f}  {h['avg']:>12.4f}")
 
     return best
 
 
-# ──────────────────────────────────────────────
-# Standalone simulation runner (no GA)
-# ──────────────────────────────────────────────
+# ══════════════════════════════════════════════
+# Baseline single-run (for testing / --once)
+# ══════════════════════════════════════════════
+
 def run_once(phases=None):
-    """
-    Run a single simulation with the given phases (or defaults from 4way.xml)
-    and print results. Use this to test your setup before running the GA.
-    """
     check_sumo()
     if phases is None:
-        # Read from 4way.xml
-        tree = ET.parse(ADDITIONAL_FILE)
-        root = tree.getroot()
-        phase_els = root.find("tlLogic").findall("phase")
-        phases = [int(p.get("duration")) for p in phase_els]
+        tree = ET.parse(ADD_FILE)
+        phases = [int(p.get("duration"))
+                  for p in tree.getroot().find("tlLogic").findall("phase")]
 
     print(f"Running single simulation with phases: {phases}")
-    metrics = run_simulation(phases)
-    print(f"Results:")
-    print(f"  Vehicles departed : {metrics['departed']}")
-    print(f"  Avg waiting time  : {metrics.get('avg_wait',  '?'):.2f}s")
-    print(f"  Avg travel time   : {metrics.get('avg_travel','?'):.2f}s")
-    print(f"  Total waiting time: {metrics.get('total_wait','?'):.2f}s")
-    return metrics
+    m = run_simulation(phases)
+    print("Results:")
+    print(f"  Departed          : {m.get('departed',  '?')}")
+    print(f"  Arrived (thruput) : {m.get('arrived',   '?')}")
+    print(f"  Avg waiting time  : {m.get('avg_wait',  0):.2f}s")
+    print(f"  Avg travel time   : {m.get('avg_travel',0):.2f}s")
+    print(f"  Total waiting time: {m.get('total_wait',0):.2f}s")
+    return m
 
 
-# ──────────────────────────────────────────────
+# ══════════════════════════════════════════════
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="GA Traffic Light Optimizer")
     parser.add_argument("--once", action="store_true",
-                        help="Run a single simulation with current 4way.xml phases and exit")
-    parser.add_argument("--phases", nargs=4, type=int, metavar=("GN","YN","GW","YW"),
-                        help="Manually specify 4 phase durations for --once mode")
+                        help="Run a single baseline simulation and exit")
+    parser.add_argument("--phases", nargs=4, type=int,
+                        metavar=("GN", "YN", "GW", "YW"),
+                        help="Phase durations for --once mode")
+    parser.add_argument("--objective",
+                        choices=["wait_time", "throughput"],
+                        default="wait_time",
+                        help="Fitness objective (default: wait_time)")
     args = parser.parse_args()
+
+    # Push chosen objective into the module-level constant used by fitness()
+    OBJECTIVE = args.objective
 
     if args.once:
         run_once(args.phases)
