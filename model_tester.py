@@ -11,8 +11,10 @@ def compare(predicted_g_ns, predicted_g_ew, arrival_ns, arrival_ew):
     wg_ns, wg_ew = webster(arrival_ns, arrival_ew, saturation_headway=1, first_car_delay=3)
 
 
-    baseline1 = generate(wg_ns, wg_ew, arrival_ns, arrival_ew, ns_first=True)
-    baseline2 = generate(wg_ns, wg_ew, arrival_ns, arrival_ew, ns_first=False)
+    # baseline1 = generate(wg_ns, wg_ew, arrival_ns, arrival_ew, ns_first=True)
+    # baseline2 = generate(wg_ns, wg_ew, arrival_ns, arrival_ew, ns_first=False)
+    baseline1 = generate(60, 60, arrival_ns, arrival_ew, ns_first=True)
+    baseline2 = generate(60, 60, arrival_ns, arrival_ew, ns_first=False)
 
     print(f"Predicted: NS={predicted_g_ns:.2f} sec, EW={predicted_g_ew:.2f} sec")
     print(f"Predicted (NS first): Total accepted: {result1['cars_accepted_ns'] + result1['cars_accepted_ew']}, Average wait time: {result1['total_wait_time_ns'] / result1['cars_accepted_ns'] if result1['cars_accepted_ns'] > 0 else 0:.2f} sec (NS), {result1['total_wait_time_ew'] / result1['cars_accepted_ew'] if result1['cars_accepted_ew'] > 0 else 0:.2f} sec (EW)")
