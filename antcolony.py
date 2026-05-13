@@ -46,19 +46,7 @@ def node_score(tlp: TrafficLightPolicy):
 # generate pheromone values of a random number for all paths from one node/policy to another
 # you can only travel to another policy if it differs by 1
 pheromone_graph: dict[tuple[TrafficLightPolicy, TrafficLightPolicy], float] = {
-    (i, j): 1
-    for i in [
-        (a0, a1, a2)
-        for a0 in range(1, 11)
-        for a1 in range(1, 11)
-        for a2 in range(1, 11)
-    ]
-    for j in [
-        (a0, a1, a2)
-        for a0 in range(1, 11)
-        for a1 in range(1, 11)
-        for a2 in range(1, 11)
-    ]
+    (i, j): 1 for i in nodes for j in nodes if i != j
 }
 
 
@@ -80,8 +68,10 @@ def aco():
 
     all_paths = []
     all_scores = []
-    for _ in range(n_iterations):
-        for _ in range(n_ants):
+    for iter in range(n_iterations):
+        print(f"Iteration {iter} started")
+        for ant in range(n_ants):
+            print(f"Ant {ant} deployed")
             score = 0
             visited = [nodes[random.randint(0, len(nodes) - 1)]]
 
@@ -98,7 +88,7 @@ def aco():
 
                 probabilities = np.array(probabilities)
                 probabilities /= probabilities.sum()
-                next_node = np.random.choice(range(len(nodes)), p=probabilities)
+                next_node = nodes[np.random.choice(range(len(nodes)), p=probabilities)]
                 visited.append(next_node)
 
             all_paths.append(visited)
@@ -108,6 +98,8 @@ def aco():
                 global_best_node = visited[-1]
                 global_best_score = score
                 global_best_path = visited
+
+            print(f"Ant {ant} done")
 
         for node in pheromone_graph.keys():
             pheromone_graph[node] *= 1 - evaporation  # evaporate some pheromone
@@ -120,6 +112,8 @@ def aco():
 
             pheromone_graph[(path[-1], path[0])] += Q * score
             pheromone_graph[(path[0], path[-1])] += Q * score
+
+        print(f"Iteration {iter} done")
 
     print("Best Node: ", global_best_node)
     print("Best Score: ", global_best_score)
