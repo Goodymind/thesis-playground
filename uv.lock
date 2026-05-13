@@ -414,6 +414,15 @@ wheels = [
 ]
 
 [[package]]
+name = "sumolib"
+version = "1.26.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/03/36bbd7b9f6120e39d9e4f6865186ab8195f7b5a3833c37fc8c24df1d23fe/sumolib-1.26.0.tar.gz", hash = "sha256:eedf9cbcea46ac9db6a2a46ee74f85edbf4384de1f6b73bf73550642ba6044c1", size = 138920, upload-time = "2026-01-29T14:54:37.312Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/2d/44832bb6dec541d7d0d79ce6cf50f4213dcb862f4a7e192c9828841f7d84/sumolib-1.26.0-py2.py3-none-any.whl", hash = "sha256:189011b50db451b44f0ffa3a49e7cefd6250573f0e239fba540e1883ad910eaf", size = 233486, upload-time = "2026-01-29T14:54:35.577Z" },
+]
+
+[[package]]
 name = "thesis-playground"
 version = "0.1.0"
 source = { virtual = "." }
@@ -426,6 +435,7 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "simpy" },
+    { name = "sumolib" },
     { name = "threadpoolctl" },
     { name = "xgboost" },
 ]
@@ -437,6 +447,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "scipy", specifier = ">=1.15.3" },
     { name = "simpy", specifier = ">=4.1.1" },
+    { name = "sumolib", specifier = ">=1.26.0" },
     { name = "threadpoolctl", specifier = ">=3.6.0" },
     { name = "xgboost", specifier = ">=3.2.0" },
 ]
