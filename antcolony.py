@@ -92,11 +92,12 @@ def aco():
 
                 for node in nodes:
                     if node not in visited:
-                        probabilities.append(step_probability(current, node))
+                        probabilities.append(step_numerator(current, node))
                     else:
                         probabilities.append(0)
 
                 probabilities = np.array(probabilities)
+                probabilities /= probabilities.sum()
                 next_node = np.random.choice(range(len(nodes)), p=probabilities)
                 visited.append(next_node)
 
